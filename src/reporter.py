@@ -4,11 +4,12 @@ from datetime import datetime
 
 class Reporter:
     """Generates executive terminal, JSON, and professional visual HTML security audit reports with Proof of Concept (PoC)."""
-    def __init__(self, target_url, findings, crawl_stats, ssl_data=None, score=100, grade="A", output_dir="OUTPUT"):
+    def __init__(self, target_url, findings, crawl_stats, ssl_data=None, waf_name="Undetected", score=100, grade="A", output_dir="OUTPUT"):
         self.target_url = target_url
         self.findings = findings
         self.crawl_stats = crawl_stats
         self.ssl_data = ssl_data or {}
+        self.waf_name = waf_name
         self.score = score
         self.grade = grade
         self.output_dir = output_dir
@@ -26,10 +27,11 @@ class Reporter:
         cyan = '\033[96m'
 
         print("\n" + "=" * 70)
-        print("          🛡️  ABLITERATION v3.2 - EVIDENCE-BACKED SECURITY AUDIT")
+        print("          🛡️  ABLITERATION v3.3 - EVIDENCE-BACKED SECURITY AUDIT")
         print("=" * 70)
         print(f"Target URL     : {self.target_url}")
         print(f"Security Grade : {grade_color}{bold}[ GRADE: {self.grade} ] ({self.score}/100){reset}")
+        print(f"WAF / Perimeter: {bold}{self.waf_name}{reset}")
         
         cert = self.ssl_data.get('cert_info', {})
         if cert:
@@ -66,6 +68,7 @@ class Reporter:
             'timestamp': datetime.now().isoformat(),
             'grade': self.grade,
             'score': self.score,
+            'waf_perimeter': self.waf_name,
             'ssl_info': self.ssl_data,
             'crawl_stats': self.crawl_stats,
             'summary': {
@@ -137,7 +140,7 @@ class Reporter:
 <html lang="en">
 <head>
     <meta charset="UTF-8">
-    <title>Abliteration v3.2 Evidence-Backed Security Audit - {self.target_url}</title>
+    <title>Abliteration v3.3 Evidence-Backed Security Audit - {self.target_url}</title>
     <style>
         body {{ font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; background: #0f172a; color: #f8fafc; margin: 0; padding: 24px; }}
         .container {{ max-width: 940px; margin: 0 auto; }}
@@ -154,8 +157,8 @@ class Reporter:
         <div class="header">
             <div class="top-banner">
                 <div>
-                    <h1 style="margin:0; font-size:24px;">🛡️ Abliteration v3.2 Security Audit Report</h1>
-                    <p style="color:#94a3b8; margin:6px 0 0 0;">Target: <a href="{self.target_url}" style="color:#38bdf8;" target="_blank">{self.target_url}</a> | Audited: {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}</p>
+                    <h1 style="margin:0; font-size:24px;">🛡️ Abliteration v3.3 Security Audit Report</h1>
+                    <p style="color:#94a3b8; margin:6px 0 0 0;">Target: <a href="{self.target_url}" style="color:#38bdf8;" target="_blank">{self.target_url}</a> | Perimeter: <span style="color:#38bdf8; font-weight:bold;">{self.waf_name}</span> | Audited: {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}</p>
                 </div>
                 <div class="grade-badge">
                     <div style="font-size:12px; letter-spacing:1px; opacity:0.8;">SECURITY GRADE</div>

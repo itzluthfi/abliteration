@@ -1,70 +1,52 @@
-# Abliteration V3.1 🛡️
+# Abliteration V3.3 🛡️
 
-**Abliteration** is an enterprise-grade, lightweight Dynamic Application Security Testing (DAST) engine, cryptographic inspector, and web security auditor designed for developers, security engineers, and automated DevSecOps pipelines.
+**Abliteration** is an enterprise-grade, lightweight Dynamic Application Security Testing (DAST) engine, cryptographic inspector, DNS/DMARC email security auditor, and OAST disposable email platform designed for developers, security engineers, and automated DevSecOps pipelines.
 
 [![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE)
 [![Python 3.8+](https://img.shields.io/badge/Python-3.8+-green.svg)](https://python.org)
-[![Security: DAST](https://img.shields.io/badge/Security-Enterprise%20DAST-red.svg)](https://github.com/itzluthfi/abliteration)
+[![Security: Enterprise DAST](https://img.shields.io/badge/Security-Enterprise%20DAST-red.svg)](https://github.com/itzluthfi/abliteration)
 
 ---
 
-## 🌟 Enterprise Features
-
-Unlike simple single-URL toy scripts, **Abliteration v3.1** incorporates features comparable to commercial enterprise scanners:
+## 🌟 Key Enterprise Features
 
 ### 1. 🕷️ Smart Web Spider / Crawler
-- Recursively traverses internal links (`<a href>`), parses HTML forms (`<form>`), and extracts real query parameters.
+- Recursively discovers internal links (`<a href>`), parses HTML forms (`<form>`), and maps parameters.
 - Discovers hidden endpoints across single-page apps (SPA) and multi-page architectures.
 
-### 2. 🔒 SSL/TLS Cryptographic Inspector
+### 2. 🛡️ WAF & Perimeter Detection
+- Automatic fingerprinting of Web Application Firewalls (WAF) and CDNs (Cloudflare, AWS CloudFront, Akamai, Fastly, Imperva, Sucuri).
+
+### 3. 📧 DNS & Email Spoofing Defense (SPF & DMARC)
+- Audits domain DNS TXT records via DNS-over-HTTPS (DoH).
+- Detects missing or permissive (`p=none`) DMARC and SPF policies that leave domains vulnerable to CEO fraud and email phishing.
+
+### 4. 🔒 SSL/TLS Cryptographic Inspector
 - Deep inspection of peer certificates via Python native `ssl` engine:
   - Days remaining until expiration (warns at <15 days, critical if expired).
   - Certificate Authority / Issuer transparency (Let's Encrypt, Cloudflare, DigiCert, etc.).
   - Protocol version audit (detects and warns on deprecated TLS 1.0, 1.1, and SSLv3).
-  - Weak cryptographic cipher and key-length detection.
 
-### 3. 🍪 Cookie Security Hygiene Auditor
-- Evaluates all `Set-Cookie` directives against modern defense standards:
+### 5. 🍪 Cookie Security Hygiene Auditor
+- Evaluates all `Set-Cookie` directives:
   - `HttpOnly`: Prevents cookie theft via Cross-Site Scripting (XSS).
-  - `Secure`: Ensures cookies are never leaked over unencrypted plaintext Wi-Fi.
+  - `Secure`: Ensures cookies are never leaked over unencrypted Wi-Fi.
   - `SameSite`: Verifies `Strict` or `Lax` policy to defeat Cross-Site Request Forgery (CSRF).
 
-### 4. 🎯 API & Hidden Attack Surface Discovery
-- Automatically probes for exposed internal documentation:
+### 6. 🎯 API & Hidden Attack Surface Discovery
+- Probes for exposed internal documentation:
   - `/swagger.json`, `/openapi.json`, `/api-docs`, `/v2/api-docs`, `/swagger-ui.html`.
   - Active GraphQL endpoints (`/graphql`) with schema verification.
 
-### 5. 🛡️ Smart Anti-False-Positive Filter
-- Disables blind redirect tracking (`allow_redirects=False`) to prevent 301/303 redirect pages from triggering false alarms.
-- Content signature validation: `.env` or configuration dumps are only flagged if actual configuration keys match the payload body.
+### 7. ⚡ OAST Disposable Email Engine (`--temp-mail`)
+- Instant temporary inbox generator with real-time incoming email polling and automatic OTP code extraction for registration and account flow testing.
 
-### 6. 🏆 Industry-Standard Security Scoring (Grade A+ to F)
-- Computes a global Security Score (0–100) and Letter Grade (`A+`, `A`, `B`, `C`, `D`, `F`) inspired by Mozilla Observatory and Qualys SSL Labs.
+### 8. 🔍 Verifiable Proof-of-Concept (PoC) & Evidence
+- Every single finding includes a 1-click reproducible `curl` command and raw response evidence snippet to prevent fictitious claims.
 
-### 7. 🚀 DevSecOps CI/CD Quality Gate
-- Includes `--fail-on [HIGH|MEDIUM|LOW]` flag to automatically fail pull requests or deployments if critical vulnerabilities are detected.
-- Includes pre-built `.github/workflows/security-audit.yml` GitHub Action.
-
----
-
-## 📁 Architecture
-```text
-abliteration/
-├── src/
-│   ├── crawler.py       # Smart Web Spider & parameter extractor
-│   ├── ssl_inspector.py # Cryptographic & SSL/TLS certificate auditor
-│   ├── auditor.py       # Security checks, cookie hygiene, & scoring engine
-│   └── reporter.py      # Terminal, JSON, & interactive HTML report generator
-├── .github/
-│   └── workflows/
-│       └── security-audit.yml  # Automated CI/CD pipeline
-├── OUTPUT/
-│   ├── audit_report.html       # Visual executive HTML report
-│   └── audit_report.json       # Machine-readable JSON report
-├── requirements.txt
-├── abliteration.py      # Main CLI entry point
-└── README.md
-```
+### 9. 🏆 Standard Security Scoring & CI/CD Quality Gate
+- Computes a global Security Score (0–100) and Letter Grade (`A+` to `F`).
+- Includes `--fail-on [HIGH|MEDIUM|LOW]` flag and pre-built GitHub Actions workflow.
 
 ---
 
@@ -75,33 +57,40 @@ git clone https://github.com/itzluthfi/abliteration.git
 cd abliteration
 pip install -r requirements.txt
 
-# 1. Interactive Mode:
-python abliteration.py
-
-# 2. Command Line Execution:
+# 1. Full Security Audit:
 python abliteration.py -u https://your-site.com --max-pages 20
 
-# 3. CI/CD Quality Gate (Fail if HIGH risk is detected):
+# 2. CI/CD Quality Gate (Fail pipeline if HIGH risk is detected):
 python abliteration.py -u https://your-site.com --fail-on HIGH
+
+# 3. Disposable Email Engine (OAST / Registration Testing):
+python abliteration.py --temp-mail --listen-sec 120
 ```
 
 ---
 
-## 📄 Sample Report Output
-After the audit finishes, open the interactive HTML report in your browser:
+## 📁 Architecture
 ```text
-====================================================================
-          🛡️  ABLITERATION v3.1 - EXECUTIVE SECURITY AUDIT
-====================================================================
-Target URL     : https://fd-printing.sir-l.web.id
-Security Grade : [ GRADE: B ] (75/100)
-SSL/TLS Status : TLSv1.3 | Issuer: Google Trust Services (88 days left)
-Pages Crawled  : 14
-Forms Discovered: 12
-Params Tested  : 9
---------------------------------------------------------------------
-Risk Matrix    : [🔴 HIGH: 1]  [🟡 MEDIUM: 2]  [🔵 LOW: 2]  [⚪ INFO: 1]
-====================================================================
+abliteration/
+├── src/
+│   ├── crawler.py          # Smart Web Spider & parameter extractor
+│   ├── ssl_inspector.py    # Cryptographic & SSL/TLS certificate auditor
+│   ├── auditor.py          # DAST checks, cookie hygiene, & scoring engine
+│   ├── reporter.py         # Terminal, JSON, & interactive HTML report generator
+│   └── tools/
+│       ├── dns_auditor.py  # SPF, DMARC, RFC 9116 security.txt, & WAF detector
+│       └── tempmail.py     # OAST disposable inbox client & OTP extractor
+├── tests/
+│   └── mock_lab.py         # Local vulnerable test lab server
+├── .github/
+│   └── workflows/
+│       └── security-audit.yml  # Automated CI/CD pipeline
+├── OUTPUT/
+│   ├── audit_report.html   # Visual executive HTML report
+│   └── audit_report.json   # Machine-readable JSON report
+├── requirements.txt
+├── abliteration.py         # Main CLI entry point
+└── README.md
 ```
 
 ---
