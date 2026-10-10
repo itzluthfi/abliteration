@@ -3,11 +3,14 @@ import json
 from datetime import datetime
 
 class Reporter:
-    """Generates terminal, JSON, and clean HTML security audit reports."""
-    def __init__(self, target_url, findings, crawl_stats, output_dir="OUTPUT"):
+    """Generates executive terminal, JSON, and professional visual HTML security audit reports."""
+    def __init__(self, target_url, findings, crawl_stats, ssl_data=None, score=100, grade="A", output_dir="OUTPUT"):
         self.target_url = target_url
         self.findings = findings
         self.crawl_stats = crawl_stats
+        self.ssl_data = ssl_data or {}
+        self.score = score
+        self.grade = grade
         self.output_dir = output_dir
         os.makedirs(self.output_dir, exist_ok=True)
 
@@ -17,19 +20,29 @@ class Reporter:
         low = sum(1 for f in self.findings if f['level'] == 'LOW')
         info = sum(1 for f in self.findings if f['level'] == 'INFO')
 
-        print("\n" + "=" * 65)
-        print("          🛡️  ABLITERATION v3.0 - EXECUTIVE AUDIT SUMMARY")
-        print("=" * 65)
+        grade_color = '\033[92m' if self.grade in ['A+', 'A'] else '\033[93m' if self.grade in ['B', 'C'] else '\033[91m'
+        reset = '\033[0m'
+        bold = '\033[1m'
+
+        print("\n" + "=" * 68)
+        print("          🛡️  ABLITERATION v3.1 - EXECUTIVE SECURITY AUDIT")
+        print("=" * 68)
         print(f"Target URL     : {self.target_url}")
+        print(f"Security Grade : {grade_color}{bold}[ GRADE: {self.grade} ] ({self.score}/100){reset}")
+        
+        cert = self.ssl_data.get('cert_info', {})
+        if cert:
+            print(f"SSL/TLS Status : {cert.get('tls_version', 'HTTPS')} | Issuer: {cert.get('issuer', 'N/A')} ({cert.get('days_left', '?')} days left)")
+        
         print(f"Pages Crawled  : {self.crawl_stats.get('visited_count', 0)}")
-        print(f"Forms Found    : {len(self.crawl_stats.get('forms', []))}")
+        print(f"Forms Discovered: {len(self.crawl_stats.get('forms', []))}")
         print(f"Params Tested  : {len(self.crawl_stats.get('params', []))}")
-        print("-" * 65)
-        print(f"Risk Breakdown : [🔴 HIGH: {high}]  [🟡 MEDIUM: {med}]  [🔵 LOW: {low}]  [⚪ INFO: {info}]")
-        print("=" * 65)
+        print("-" * 68)
+        print(f"Risk Matrix    : [🔴 HIGH: {high}]  [🟡 MEDIUM: {med}]  [🔵 LOW: {low}]  [⚪ INFO: {info}]")
+        print("=" * 68)
 
         if not self.findings:
-            print("\n  [✓] No significant vulnerabilities or missing security controls detected!")
+            print(f"\n  {grade_color}[✓] Excellent! No security risks identified across all test suites.{reset}")
         else:
             for i, f in enumerate(self.findings, 1):
                 lvl = f['level']
@@ -39,13 +52,16 @@ class Reporter:
                 if f.get('remediation'):
                     print(f"   Remediation: {f['remediation']}")
 
-        print("\n" + "=" * 65)
+        print("\n" + "=" * 68)
 
     def export_json(self, filename="audit_report.json"):
         path = os.path.join(self.output_dir, filename)
         data = {
             'target': self.target_url,
             'timestamp': datetime.now().isoformat(),
+            'grade': self.grade,
+            'score': self.score,
+            'ssl_info': self.ssl_data,
             'crawl_stats': self.crawl_stats,
             'summary': {
                 'high': sum(1 for f in self.findings if f['level'] == 'HIGH'),
@@ -64,6 +80,20 @@ class Reporter:
         high = sum(1 for f in self.findings if f['level'] == 'HIGH')
         med = sum(1 for f in self.findings if f['level'] == 'MEDIUM')
         low = sum(1 for f in self.findings if f['level'] == 'LOW')
+        info = sum(1 for f in self.findings if f['level'] == 'INFO')
+
+        grade_bg = "#10b981" if self.grade in ['A+', 'A'] else "#f59e0b" if self.grade in ['B', 'C'] else "#ef4444"
+
+        cert = self.ssl_data.get('cert_info', {})
+        ssl_html = ""
+        if cert:
+            ssl_html = f"""
+            <div style="background:#0f172a; padding:12px; border-radius:6px; margin-top:12px; display:flex; justify-content:space-between; font-size:13px; color:#cbd5e1;">
+                <div>🔒 <strong>Protocol:</strong> {cert.get('tls_version', 'TLS')} ({cert.get('cipher', 'N/A')})</div>
+                <div>🏢 <strong>Issuer:</strong> {cert.get('issuer', 'N/A')}</div>
+                <div>⏳ <strong>Validity:</strong> {cert.get('days_left', '?')} days left (Expires {cert.get('expires_at', 'N/A')})</div>
+            </div>
+            """
 
         items_html = ""
         for f in self.findings:
@@ -76,7 +106,7 @@ class Reporter:
                 </div>
                 <p style="color:#94a3b8; font-size:14px; margin:8px 0;"><strong>Category:</strong> {f['category']}</p>
                 <p style="color:#cbd5e1; font-size:14px; margin:8px 0;">{f['detail']}</p>
-                {f'<div style="background:#0f172a; padding:10px; border-radius:4px; margin-top:8px; font-family:monospace; color:#38bdf8; font-size:13px;"><strong>Fix:</strong> {f["remediation"]}</div>' if f.get('remediation') else ''}
+                {f'<div style="background:#0f172a; padding:10px; border-radius:4px; margin-top:8px; font-family:monospace; color:#38bdf8; font-size:13px;"><strong>Remediation:</strong> {f["remediation"]}</div>' if f.get('remediation') else ''}
             </div>
             """
 
@@ -84,11 +114,13 @@ class Reporter:
 <html lang="en">
 <head>
     <meta charset="UTF-8">
-    <title>Abliteration Security Audit - {self.target_url}</title>
+    <title>Abliteration v3.1 Security Audit - {self.target_url}</title>
     <style>
         body {{ font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; background: #0f172a; color: #f8fafc; margin: 0; padding: 24px; }}
-        .container {{ max-width: 900px; margin: 0 auto; }}
+        .container {{ max-width: 920px; margin: 0 auto; }}
         .header {{ background: #1e293b; padding: 24px; border-radius: 8px; margin-bottom: 24px; }}
+        .top-banner {{ display:flex; justify-content:space-between; align-items:center; }}
+        .grade-badge {{ background: {grade_bg}; color:#fff; font-size:28px; font-weight:bold; padding:8px 20px; border-radius:8px; text-align:center; }}
         .stats {{ display: grid; grid-template-columns: repeat(4, 1fr); gap: 12px; margin-top: 16px; }}
         .card {{ background: #0f172a; padding: 12px; border-radius: 6px; text-align: center; }}
         .num {{ font-size: 24px; font-weight: bold; margin-top: 4px; }}
@@ -97,8 +129,17 @@ class Reporter:
 <body>
     <div class="container">
         <div class="header">
-            <h1 style="margin:0; font-size:24px;">🛡️ Abliteration v3.0 Security Audit Report</h1>
-            <p style="color:#94a3b8; margin:8px 0 0 0;">Target: <a href="{self.target_url}" style="color:#38bdf8;" target="_blank">{self.target_url}</a> | Generated: {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}</p>
+            <div class="top-banner">
+                <div>
+                    <h1 style="margin:0; font-size:24px;">🛡️ Abliteration v3.1 Security Audit</h1>
+                    <p style="color:#94a3b8; margin:6px 0 0 0;">Target: <a href="{self.target_url}" style="color:#38bdf8;" target="_blank">{self.target_url}</a> | Audited: {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}</p>
+                </div>
+                <div class="grade-badge">
+                    <div style="font-size:12px; letter-spacing:1px; opacity:0.8;">SECURITY GRADE</div>
+                    {self.grade} <span style="font-size:16px; font-weight:normal;">({self.score}/100)</span>
+                </div>
+            </div>
+            {ssl_html}
             <div class="stats">
                 <div class="card"><div style="color:#94a3b8; font-size:12px;">PAGES CRAWLED</div><div class="num" style="color:#38bdf8;">{self.crawl_stats.get('visited_count', 0)}</div></div>
                 <div class="card"><div style="color:#94a3b8; font-size:12px;">HIGH RISKS</div><div class="num" style="color:#ef4444;">{high}</div></div>
@@ -106,8 +147,8 @@ class Reporter:
                 <div class="card"><div style="color:#94a3b8; font-size:12px;">LOW RISKS</div><div class="num" style="color:#3b82f6;">{low}</div></div>
             </div>
         </div>
-        <h2 style="font-size:20px; border-bottom:1px solid #334155; padding-bottom:8px;">Audit Findings & Recommendations</h2>
-        {items_html if items_html else '<p style="color:#10b981;">No security findings identified. All evaluated baseline checks passed.</p>'}
+        <h2 style="font-size:20px; border-bottom:1px solid #334155; padding-bottom:8px;">Identified Findings & Remediation Guide</h2>
+        {items_html if items_html else '<p style="color:#10b981;">No security findings identified. All baseline security controls passed.</p>'}
     </div>
 </body>
 </html>"""
