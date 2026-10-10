@@ -9,27 +9,29 @@ class Colors:
     BOLD = '\033[1m'; EN = '\033[0m'
 
 class SecurityAuditor:
-    """Enterprise-grade security auditor with anti-false-positive heuristics and scoring engine."""
+    """Enterprise-grade security auditor with Evidence-Backed Proof of Concept (PoC)."""
     def __init__(self, target_url, session=None):
         self.target_url = target_url.rstrip('/')
         self.session = session or requests.Session()
         self.session.headers.update({
-            'User-Agent': 'Abliteration-Auditor/3.1 (+https://github.com/itzluthfi/abliteration)'
+            'User-Agent': 'Abliteration-Auditor/3.2 (+https://github.com/itzluthfi/abliteration)'
         })
         self.findings = []
         self.cert_info = {}
 
-    def log_finding(self, category, level, title, detail, remediation=""):
+    def log_finding(self, category, level, title, detail, remediation="", poc_curl="", evidence_snippet=""):
+        """Logs a finding backed by reproducible evidence (PoC)."""
         self.findings.append({
             'category': category,
             'level': level,
             'title': title,
             'detail': detail,
-            'remediation': remediation
+            'remediation': remediation,
+            'poc_curl': poc_curl,
+            'evidence_snippet': evidence_snippet
         })
 
     def calculate_score(self):
-        """Calculates security grade (A+ to F) and 0-100 numerical score."""
         score = 100
         for f in self.findings:
             if f['level'] == 'HIGH':
@@ -55,13 +57,15 @@ class SecurityAuditor:
 
         return score, grade
 
-    # 1. Security Headers & Information Leakage
+    # 1. Security Headers Audit with Real PoC curl command
     def audit_headers_and_server(self):
         try:
             resp = self.session.get(self.target_url, timeout=10)
             headers = resp.headers
         except Exception as e:
-            self.log_finding('Infrastructure', 'HIGH', 'Target Unreachable', str(e))
+            self.log_finding('Infrastructure', 'HIGH', 'Target Unreachable', str(e),
+                             poc_curl=f'curl -I -v "{self.target_url}"',
+                             evidence_snippet=f'Network error: {str(e)}')
             return
 
         req_headers = {
@@ -73,9 +77,21 @@ class SecurityAuditor:
             'Permissions-Policy': ('LOW', 'Restrict sensitive browser features (camera, mic, geolocation)', 'Permissions-Policy: camera=(), microphone=(), geolocation=()')
         }
 
+        # Build raw header proof
+        header_sample = "\n".join([f"{k}: {v}" for k, v in list(headers.items())[:6]])
+
         for h, (level, desc, fix) in req_headers.items():
             if h not in headers:
-                self.log_finding('Security Headers', level, f'Missing {h}', f'{desc}. Header is not present.', f'Add header: {fix}')
+                poc = f'curl -I -s "{self.target_url}" | grep -i "{h}"'
+                self.log_finding(
+                    category='Security Headers',
+                    level=level,
+                    title=f'Missing {h}',
+                    detail=f'{desc}. Header is absent from server response.',
+                    remediation=f'Add header: {fix}',
+                    poc_curl=poc,
+                    evidence_snippet=f'Verified via HTTP response inspection. No "{h}" header returned by {self.target_url}.'
+                )
 
         # Server Technology Version Disclosure
         leaky_headers = ['Server', 'X-Powered-By', 'X-AspNet-Version', 'X-Runtime']
@@ -83,11 +99,18 @@ class SecurityAuditor:
             if lh in headers:
                 val = headers[lh]
                 if any(char.isdigit() for char in val):
-                    self.log_finding('Information Disclosure', 'LOW', f'Technology Version Leak ({lh})', 
-                                     f'Reveals exact backend version: "{val}". Facilitates targeted exploit research.', 
-                                     f'Disable or mask the {lh} response header in web server configuration.')
+                    poc = f'curl -I -s "{self.target_url}" | grep -i "{lh}"'
+                    self.log_finding(
+                        category='Information Disclosure',
+                        level='LOW',
+                        title=f'Technology Version Leak ({lh})',
+                        detail=f'Server explicitly reveals exact backend version: "{lh}: {val}".',
+                        remediation=f'Disable or mask the {lh} response header in your web server configuration.',
+                        poc_curl=poc,
+                        evidence_snippet=f'{lh}: {val}'
+                    )
 
-    # 2. Cookie Security Hygiene Audit
+    # 2. Cookie Security Hygiene Audit with Evidence
     def audit_cookies(self):
         try:
             resp = self.session.get(self.target_url, timeout=8)
@@ -99,30 +122,35 @@ class SecurityAuditor:
 
             for cookie in cookies:
                 c_name = cookie.name
-                # Check HttpOnly
                 is_httponly = cookie.has_nonstandard_attr('httponly') or 'httponly' in str(cookie._rest).lower() or f"{c_name}=" in raw_set_cookie and 'httponly' in raw_set_cookie.lower()
                 if not is_httponly:
-                    self.log_finding('Cookie Security', 'MEDIUM', f'Cookie Missing HttpOnly Flag: "{c_name}"',
-                                     f'Cookie "{c_name}" is readable via JavaScript (document.cookie). Can be stolen in XSS attacks.',
-                                     f'Set the "HttpOnly" flag when issuing the {c_name} cookie in your backend.')
+                    poc = f'curl -I -s "{self.target_url}" | grep -i "set-cookie"'
+                    self.log_finding(
+                        category='Cookie Security',
+                        level='MEDIUM',
+                        title=f'Cookie Missing HttpOnly Flag: "{c_name}"',
+                        detail=f'Cookie "{c_name}" is readable via JavaScript (document.cookie). Can be stolen in XSS attacks.',
+                        remediation=f'Set the "HttpOnly" directive when issuing the {c_name} cookie.',
+                        poc_curl=poc,
+                        evidence_snippet=f'Set-Cookie directive for "{c_name}" does not contain the HttpOnly flag.'
+                    )
 
-                # Check Secure Flag
                 is_secure = cookie.secure or (f"{c_name}=" in raw_set_cookie and 'secure' in raw_set_cookie.lower())
                 if not is_secure and self.target_url.startswith('https'):
-                    self.log_finding('Cookie Security', 'MEDIUM', f'Cookie Missing Secure Flag: "{c_name}"',
-                                     f'Cookie "{c_name}" can be transmitted over unencrypted plaintext HTTP connections.',
-                                     f'Set the "Secure" flag when issuing the {c_name} cookie.')
-
-                # Check SameSite
-                samesite = cookie.get_nonstandard_attr('samesite')
-                if not samesite:
-                    self.log_finding('Cookie Security', 'LOW', f'Cookie Missing SameSite Attribute: "{c_name}"',
-                                     f'Cookie "{c_name}" does not specify SameSite policy. May be vulnerable to CSRF.',
-                                     f'Configure "SameSite=Lax" or "SameSite=Strict" for the {c_name} cookie.')
+                    poc = f'curl -I -s "{self.target_url}" | grep -i "set-cookie"'
+                    self.log_finding(
+                        category='Cookie Security',
+                        level='MEDIUM',
+                        title=f'Cookie Missing Secure Flag: "{c_name}"',
+                        detail=f'Cookie "{c_name}" can be transmitted over unencrypted plaintext HTTP connections.',
+                        remediation=f'Set the "Secure" directive when issuing the {c_name} cookie.',
+                        poc_curl=poc,
+                        evidence_snippet=f'Set-Cookie directive for "{c_name}" does not contain the Secure flag.'
+                    )
         except Exception:
             pass
 
-    # 3. API & Hidden Attack Surface Discovery (Swagger / GraphQL)
+    # 3. API & Hidden Surface Discovery with PoC
     def audit_api_surface(self):
         endpoints = [
             ('/swagger.json', ['"swagger":', '"openapi":'], 'Swagger/OpenAPI 2.0/3.0 Definition'),
@@ -136,45 +164,41 @@ class SecurityAuditor:
         for path, signatures, desc in endpoints:
             url = f"{self.target_url}/{path.lstrip('/')}"
             try:
-                # Test GET
                 resp = self.session.get(url, timeout=6, allow_redirects=False)
                 if resp.status_code == 200:
                     text = resp.text
                     has_sig = any(sig in text for sig in signatures)
                     if has_sig:
-                        self.log_finding('API Exposure', 'MEDIUM', f'Exposed API Surface: {path}',
-                                         f'{desc} is publicly accessible at {url}. Exposes full internal endpoint schemas and parameter requirements.',
-                                         f'Restrict access to {path} to authorized internal environments or VPN.')
+                        match_sample = text[:150].replace('\n', ' ')
+                        poc = f'curl -s -i "{url}"'
+                        self.log_finding(
+                            category='API Exposure',
+                            level='MEDIUM',
+                            title=f'Exposed API Surface: {path}',
+                            detail=f'{desc} is publicly accessible at {url}. Exposes full internal endpoint schemas.',
+                            remediation=f'Restrict access to {path} to authorized internal environments or VPN.',
+                            poc_curl=poc,
+                            evidence_snippet=f'HTTP 200 OK | Body: {match_sample}...'
+                        )
                         continue
 
-                # Test GraphQL POST
                 if path == '/graphql':
                     gql_resp = self.session.post(url, json={"query": "{__typename}"}, timeout=6, allow_redirects=False)
                     if gql_resp.status_code == 200 and 'data' in gql_resp.text:
-                        self.log_finding('API Exposure', 'MEDIUM', 'Active GraphQL Endpoint Exposed',
-                                         f'GraphQL endpoint active at {url}. Accepts external queries.',
-                                         'Disable GraphQL Introspection in production and implement depth/rate limiting.')
+                        poc = f'curl -s -X POST "{url}" -H "Content-Type: application/json" -d \'{{"query": "{{__typename}}"}}\''
+                        self.log_finding(
+                            category='API Exposure',
+                            level='MEDIUM',
+                            title='Active GraphQL Endpoint Exposed',
+                            detail=f'GraphQL endpoint active at {url}. Responded to GraphQL query introspection.',
+                            remediation='Disable GraphQL Introspection in production and implement depth/rate limiting.',
+                            poc_curl=poc,
+                            evidence_snippet=gql_resp.text[:150]
+                        )
             except Exception:
                 pass
 
-    # 4. CORS Misconfiguration Audit
-    def audit_cors(self):
-        evil_origin = 'https://evil-attacker.com'
-        try:
-            resp = self.session.get(self.target_url, headers={'Origin': evil_origin}, timeout=8)
-            acao = resp.headers.get('Access-Control-Allow-Origin', '')
-            acac = resp.headers.get('Access-Control-Allow-Credentials', '')
-            
-            if acao == evil_origin and acac.lower() == 'true':
-                self.log_finding('CORS', 'HIGH', 'Overly Permissive CORS with Credentials', 
-                                 f'Server reflects arbitrary origin "{evil_origin}" with Allow-Credentials: true. Allows cross-origin data theft.',
-                                 'Explicitly whitelist trusted origins instead of reflecting user-supplied Origin.')
-            elif acao == '*':
-                self.log_finding('CORS', 'INFO', 'Wildcard CORS Header', 'Access-Control-Allow-Origin is set to "*". Acceptable for public APIs.')
-        except Exception:
-            pass
-
-    # 5. Sensitive Files Audit with Anti-False-Positive Filter
+    # 4. Sensitive Files Audit with Evidence Proof
     def audit_sensitive_files(self):
         targets = [
             ('.env', ['=', 'APP_', 'DB_', 'SECRET', 'KEY'], 'Environment configuration file with API keys/passwords'),
@@ -204,13 +228,21 @@ class SecurityAuditor:
                             continue
 
                     level = 'INFO' if path == 'robots.txt' else 'HIGH'
-                    self.log_finding('Sensitive Files', level, f'Exposed File: {path}', 
-                                     f'{desc} is publicly accessible at {url} (HTTP 200).',
-                                     f'Block web server access to {path} or remove it from public root.')
+                    poc = f'curl -s -i "{url}"'
+                    snippet = text[:120].replace('\n', ' ')
+                    self.log_finding(
+                        category='Sensitive Files',
+                        level=level,
+                        title=f'Exposed File: {path}',
+                        detail=f'{desc} is publicly accessible at {url} (HTTP 200).',
+                        remediation=f'Block web server access to {path} or remove it from public root.',
+                        poc_curl=poc,
+                        evidence_snippet=f'HTTP 200 OK | {snippet}...'
+                    )
             except Exception:
                 pass
 
-    # 6. Context-Aware Dynamic Input Reflection Check (SQLi / XSS heuristics)
+    # 5. Dynamic Reflection Audit with Reproduction Proof
     def audit_dynamic_inputs(self, forms, params):
         test_payload_xss = 'ab1ite"r><svg/onload=alert(1)>'
         test_payload_sqli = "1' AND '1'='1"
@@ -221,18 +253,25 @@ class SecurityAuditor:
                 continue
             tested_params.add(p)
 
-            # Test XSS Reflection
+            # Test XSS Reflection with PoC
             test_url = f"{self.target_url}?{p}={urllib.parse.quote(test_payload_xss)}"
             try:
                 resp = self.session.get(test_url, timeout=8)
                 if test_payload_xss in resp.text:
-                    self.log_finding('XSS', 'HIGH', f'Reflected XSS on parameter: {p}', 
-                                     f'Payload "{test_payload_xss}" was reflected unescaped in response.',
-                                     'Apply context-aware output encoding (HTML entity encoding) for user inputs.')
+                    poc = f'curl -s "{test_url}" | grep -F "{test_payload_xss}"'
+                    self.log_finding(
+                        category='XSS',
+                        level='HIGH',
+                        title=f'Reflected XSS on parameter: {p}',
+                        detail=f'Payload was reflected unescaped in server response HTML.',
+                        remediation='Apply context-aware output encoding (HTML entity encoding) for user inputs.',
+                        poc_curl=poc,
+                        evidence_snippet=f'Server reflected unescaped payload: "{test_payload_xss}"'
+                    )
             except Exception:
                 pass
 
-            # Test SQLi Error Heuristic
+            # Test SQLi Error Heuristic with PoC
             test_url_sqli = f"{self.target_url}?{p}={urllib.parse.quote(test_payload_sqli)}"
             try:
                 resp = self.session.get(test_url_sqli, timeout=8)
@@ -247,9 +286,38 @@ class SecurityAuditor:
                 txt_lower = resp.text.lower()
                 for err in db_errors:
                     if err in txt_lower:
-                        self.log_finding('SQL Injection', 'HIGH', f'SQL Syntax Error on parameter: {p}',
-                                         f'Database error string detected: "{err}".',
-                                         'Use Parameterized Queries / Prepared Statements (ORM / PDO).')
+                        poc = f'curl -s "{test_url_sqli}" | grep -i "{err}"'
+                        self.log_finding(
+                            category='SQL Injection',
+                            level='HIGH',
+                            title=f'SQL Syntax Error on parameter: {p}',
+                            detail=f'Database error string detected in response: "{err}".',
+                            remediation='Use Parameterized Queries / Prepared Statements (ORM / PDO).',
+                            poc_curl=poc,
+                            evidence_snippet=f'Observed database error in response: "{err}"'
+                        )
                         break
             except Exception:
                 pass
+
+    # 6. CORS Audit with Proof
+    def audit_cors(self):
+        evil_origin = 'https://evil-attacker.com'
+        try:
+            resp = self.session.get(self.target_url, headers={'Origin': evil_origin}, timeout=8)
+            acao = resp.headers.get('Access-Control-Allow-Origin', '')
+            acac = resp.headers.get('Access-Control-Allow-Credentials', '')
+            
+            if acao == evil_origin and acac.lower() == 'true':
+                poc = f'curl -I -s -H "Origin: {evil_origin}" "{self.target_url}" | grep -i "access-control"'
+                self.log_finding(
+                    category='CORS',
+                    level='HIGH',
+                    title='Overly Permissive CORS with Credentials',
+                    detail=f'Server reflects arbitrary origin "{evil_origin}" with Allow-Credentials: true. Allows cross-origin data theft.',
+                    remediation='Explicitly whitelist trusted origins instead of reflecting user-supplied Origin.',
+                    poc_curl=poc,
+                    evidence_snippet=f'Access-Control-Allow-Origin: {acao}\nAccess-Control-Allow-Credentials: {acac}'
+                )
+        except Exception:
+            pass

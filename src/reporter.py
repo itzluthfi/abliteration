@@ -3,7 +3,7 @@ import json
 from datetime import datetime
 
 class Reporter:
-    """Generates executive terminal, JSON, and professional visual HTML security audit reports."""
+    """Generates executive terminal, JSON, and professional visual HTML security audit reports with Proof of Concept (PoC)."""
     def __init__(self, target_url, findings, crawl_stats, ssl_data=None, score=100, grade="A", output_dir="OUTPUT"):
         self.target_url = target_url
         self.findings = findings
@@ -23,10 +23,11 @@ class Reporter:
         grade_color = '\033[92m' if self.grade in ['A+', 'A'] else '\033[93m' if self.grade in ['B', 'C'] else '\033[91m'
         reset = '\033[0m'
         bold = '\033[1m'
+        cyan = '\033[96m'
 
-        print("\n" + "=" * 68)
-        print("          🛡️  ABLITERATION v3.1 - EXECUTIVE SECURITY AUDIT")
-        print("=" * 68)
+        print("\n" + "=" * 70)
+        print("          🛡️  ABLITERATION v3.2 - EVIDENCE-BACKED SECURITY AUDIT")
+        print("=" * 70)
         print(f"Target URL     : {self.target_url}")
         print(f"Security Grade : {grade_color}{bold}[ GRADE: {self.grade} ] ({self.score}/100){reset}")
         
@@ -35,11 +36,11 @@ class Reporter:
             print(f"SSL/TLS Status : {cert.get('tls_version', 'HTTPS')} | Issuer: {cert.get('issuer', 'N/A')} ({cert.get('days_left', '?')} days left)")
         
         print(f"Pages Crawled  : {self.crawl_stats.get('visited_count', 0)}")
-        print(f"Forms Discovered: {len(self.crawl_stats.get('forms', []))}")
+        print(f"Forms Found    : {len(self.crawl_stats.get('forms', []))}")
         print(f"Params Tested  : {len(self.crawl_stats.get('params', []))}")
-        print("-" * 68)
+        print("-" * 70)
         print(f"Risk Matrix    : [🔴 HIGH: {high}]  [🟡 MEDIUM: {med}]  [🔵 LOW: {low}]  [⚪ INFO: {info}]")
-        print("=" * 68)
+        print("=" * 70)
 
         if not self.findings:
             print(f"\n  {grade_color}[✓] Excellent! No security risks identified across all test suites.{reset}")
@@ -49,10 +50,14 @@ class Reporter:
                 prefix = "🔴" if lvl == 'HIGH' else "🟡" if lvl == 'MEDIUM' else "🔵" if lvl == 'LOW' else "⚪"
                 print(f"\n{i}. {prefix} [{lvl}] {f['title']} ({f['category']})")
                 print(f"   Detail     : {f['detail']}")
+                if f.get('poc_curl'):
+                    print(f"   {cyan}PoC (curl) : {f['poc_curl']}{reset}")
+                if f.get('evidence_snippet'):
+                    print(f"   Evidence   : {f['evidence_snippet']}")
                 if f.get('remediation'):
-                    print(f"   Remediation: {f['remediation']}")
+                    print(f"   Fix        : {f['remediation']}")
 
-        print("\n" + "=" * 68)
+        print("\n" + "=" * 70)
 
     def export_json(self, filename="audit_report.json"):
         path = os.path.join(self.output_dir, filename)
@@ -98,15 +103,33 @@ class Reporter:
         items_html = ""
         for f in self.findings:
             color = "#ef4444" if f['level'] == 'HIGH' else "#f59e0b" if f['level'] == 'MEDIUM' else "#3b82f6" if f['level'] == 'LOW' else "#6b7280"
+            poc_block = ""
+            if f.get('poc_curl'):
+                poc_block = f"""
+                <div style="margin-top:10px;">
+                    <div style="font-size:11px; font-weight:bold; color:#38bdf8; margin-bottom:4px;">REPRODUCIBLE PROOF OF CONCEPT (PoC / CURL):</div>
+                    <div style="background:#0f172a; border:1px solid #334155; padding:8px 12px; border-radius:4px; font-family:monospace; font-size:12px; color:#e2e8f0; overflow-x:auto;">{f['poc_curl']}</div>
+                </div>
+                """
+            evidence_block = ""
+            if f.get('evidence_snippet'):
+                evidence_block = f"""
+                <div style="margin-top:6px; font-size:12px; color:#94a3b8;">
+                    <strong>Evidence:</strong> <code>{f['evidence_snippet']}</code>
+                </div>
+                """
+
             items_html += f"""
-            <div style="background:#1e293b; border-left:4px solid {color}; padding:16px; margin-bottom:12px; border-radius:6px;">
+            <div style="background:#1e293b; border-left:4px solid {color}; padding:18px; margin-bottom:14px; border-radius:6px;">
                 <div style="display:flex; justify-content:space-between; align-items:center;">
                     <h3 style="margin:0; color:#f8fafc; font-size:16px;">{f['title']}</h3>
                     <span style="background:{color}; color:#fff; padding:3px 8px; border-radius:4px; font-size:12px; font-weight:bold;">{f['level']}</span>
                 </div>
-                <p style="color:#94a3b8; font-size:14px; margin:8px 0;"><strong>Category:</strong> {f['category']}</p>
-                <p style="color:#cbd5e1; font-size:14px; margin:8px 0;">{f['detail']}</p>
-                {f'<div style="background:#0f172a; padding:10px; border-radius:4px; margin-top:8px; font-family:monospace; color:#38bdf8; font-size:13px;"><strong>Remediation:</strong> {f["remediation"]}</div>' if f.get('remediation') else ''}
+                <p style="color:#94a3b8; font-size:13px; margin:6px 0;"><strong>Category:</strong> {f['category']}</p>
+                <p style="color:#cbd5e1; font-size:14px; margin:6px 0;">{f['detail']}</p>
+                {evidence_block}
+                {poc_block}
+                {f'<div style="background:#0f172a; padding:10px; border-radius:4px; margin-top:10px; font-family:monospace; color:#4ade80; font-size:12px;"><strong>Remediation:</strong> {f["remediation"]}</div>' if f.get('remediation') else ''}
             </div>
             """
 
@@ -114,10 +137,10 @@ class Reporter:
 <html lang="en">
 <head>
     <meta charset="UTF-8">
-    <title>Abliteration v3.1 Security Audit - {self.target_url}</title>
+    <title>Abliteration v3.2 Evidence-Backed Security Audit - {self.target_url}</title>
     <style>
         body {{ font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; background: #0f172a; color: #f8fafc; margin: 0; padding: 24px; }}
-        .container {{ max-width: 920px; margin: 0 auto; }}
+        .container {{ max-width: 940px; margin: 0 auto; }}
         .header {{ background: #1e293b; padding: 24px; border-radius: 8px; margin-bottom: 24px; }}
         .top-banner {{ display:flex; justify-content:space-between; align-items:center; }}
         .grade-badge {{ background: {grade_bg}; color:#fff; font-size:28px; font-weight:bold; padding:8px 20px; border-radius:8px; text-align:center; }}
@@ -131,7 +154,7 @@ class Reporter:
         <div class="header">
             <div class="top-banner">
                 <div>
-                    <h1 style="margin:0; font-size:24px;">🛡️ Abliteration v3.1 Security Audit</h1>
+                    <h1 style="margin:0; font-size:24px;">🛡️ Abliteration v3.2 Security Audit Report</h1>
                     <p style="color:#94a3b8; margin:6px 0 0 0;">Target: <a href="{self.target_url}" style="color:#38bdf8;" target="_blank">{self.target_url}</a> | Audited: {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}</p>
                 </div>
                 <div class="grade-badge">
@@ -147,7 +170,7 @@ class Reporter:
                 <div class="card"><div style="color:#94a3b8; font-size:12px;">LOW RISKS</div><div class="num" style="color:#3b82f6;">{low}</div></div>
             </div>
         </div>
-        <h2 style="font-size:20px; border-bottom:1px solid #334155; padding-bottom:8px;">Identified Findings & Remediation Guide</h2>
+        <h2 style="font-size:20px; border-bottom:1px solid #334155; padding-bottom:8px;">Verifiable Findings & Proof of Concept (PoC)</h2>
         {items_html if items_html else '<p style="color:#10b981;">No security findings identified. All baseline security controls passed.</p>'}
     </div>
 </body>
